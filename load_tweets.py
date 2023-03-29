@@ -88,25 +88,24 @@ def insert_tweet(connection,tweet):
     This function is only partially implemented.
     You'll need to add appropriate SQL insert statements to get it to work.
     '''
-
     
+    # skip tweet if it's already inserted
+    sql=sqlalchemy.sql.text('''
+    SELECT id_tweets 
+    FROM tweets
+    WHERE id_tweets = :id_tweets
+    ''')
+    res = connection.execute(sql,{
+        'id_tweets':tweet['id'],
+        })
+    if res.first() is not None:
+        return
+
+    connection.commit()
     # insert tweet within a transaction;
     # this ensures that a tweet does not get "partially" loaded
     with connection.begin() as trans:
     
-        # skip tweet if it's already inserted
-        sql=sqlalchemy.sql.text('''
-        SELECT id_tweets 
-        FROM tweets
-        WHERE id_tweets = :id_tweets
-        ''')
-        res = connection.execute(sql,{
-            'id_tweets':tweet['id'],
-            })
-        if res.first() is not None:
-            return
-
-
         ########################################
         # insert into the users table
         ########################################
@@ -205,7 +204,7 @@ def insert_tweet(connection,tweet):
                 on conflict do nothing
                 ''')
             
-            res = connection.execute(sql, {
+            connection.execute(sql, {
                 'id_users': tweet['in_reply_to_user_id'] }
                 )
 
@@ -215,9 +214,8 @@ def insert_tweet(connection,tweet):
             (id_tweets, id_users, created_at, in_reply_to_status_id, in_reply_to_user_id, quoted_status_id, retweet_count, favorite_count, quote_count, withheld_copyright, withheld_in_countries, source, text, country_code, state_code, lang, place_name, geo)
             VALUES 
             (:id_tweets, :id_users, :created_at, :in_reply_to_status_id, :in_reply_to_user_id, :quoted_status_id, :retweet_count, :favorite_count, :quote_count, :withheld_copyright, :withheld_in_countries, :source, :text, :country_code, :state_code, :lang, :place_name, :geo)
-            on conflict do nothing
             ''')
-        res = connection.execute(sql, {
+        connection.execute(sql, {
             'id_tweets':tweet['id'],
             'id_users':tweet['user']['id'],
             'created_at':tweet.get('created_at',None),
@@ -235,8 +233,8 @@ def insert_tweet(connection,tweet):
             'state_code': remove_nulls(state_code),
             'lang': tweet.get('lang', None),
             'place_name': remove_nulls(place_name),
-            'geo': None}
-            )
+            'geo': None
+            })
 
         ########################################
         # insert into the tweet_urls table
@@ -258,7 +256,7 @@ def insert_tweet(connection,tweet):
                 on conflict do nothing
                 ''')
 
-            res = connection.execute(sql, {
+            connection.execute(sql, {
                 'id_tweets': tweet['id'],
                 'id_urls': id_urls
                 })
@@ -288,7 +286,7 @@ def insert_tweet(connection,tweet):
                 on conflict do nothing
                 ''')
             
-            res = connection.execute(sql, {
+            connection.execute(sql, {
                 'id_users':mention['id']
                 })
 
@@ -301,7 +299,7 @@ def insert_tweet(connection,tweet):
                 on conflict do nothing
                 ''')
 
-            res = connection.execute(sql, {
+            connection.execute(sql, {
                 'id_tweets':tweet['id'],
                 'id_users':mention['id']
                 })
@@ -328,9 +326,9 @@ def insert_tweet(connection,tweet):
                 on conflict do nothing
                 ''')
             
-            res = connection.execute(sql, {
+            connection.execute(sql, {
                 'id_tweets':tweet['id'],
-                'tag': remove_nulls(tag)
+                'tag':tag
                 })
 
 
@@ -353,13 +351,11 @@ def insert_tweet(connection,tweet):
                 (id_tweets, id_urls)
                 VALUES 
                 (:id_tweets, :id_urls)
-                on conflict do nothing
                 ''')
 
-            res = connection.execute(sql, {
+            connection.execute(sql, {
                 'id_tweets':tweet['id'],
                 'id_urls':id_urls
-                'type': remove_nulls(medium['type'])
                 })
 
 ################################################################################
